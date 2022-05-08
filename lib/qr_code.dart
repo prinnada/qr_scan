@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
 import 'package:qr_scan/asset_detail.dart';
+import 'package:get/get.dart';
 
 class qrScan extends StatefulWidget {
   qrScan({Key? key}) : super(key: key);
@@ -11,7 +12,7 @@ class qrScan extends StatefulWidget {
 
 class _qrScanState extends State<qrScan> {
   Result? currentResult;
-  final _url = 'http://192.168.0.125:3000';
+  //final _url = 'http://192.168.0.125:3000';
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +26,11 @@ class _qrScanState extends State<qrScan> {
           );
           setState(() {
             currentResult = result;
+            if (result != null) {
+              print(currentResult);
+
+              Get.to(() => asset_details(), arguments: result.text);
+            }
           });
         },
         child: Align(

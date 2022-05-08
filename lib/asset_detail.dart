@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
@@ -20,10 +20,15 @@ class _asset_detailsState extends State<asset_details> {
   String location = '';
   String room = '';
 
+  String result = '';
+  String check = '';
+
 //radio
   bool _isButtonEnabled = true;
+  bool isVisible = true;
   int status = 0;
-  int gValue = 0;
+  int? gValue;
+  int? val;
 
   //radio button
   void changeRadio(int? value) {
@@ -39,41 +44,68 @@ class _asset_detailsState extends State<asset_details> {
     });
   }
 
-  //showdetails
+  //show details
   void initState() {
+    result = Get.arguments;
     show_details();
     super.initState();
   }
 
   void show_details() async {
-    Uri url = Uri.parse(_url + '/show_item/');
+    Uri url = Uri.parse(_url + '/inventory/' + result);
     http.Response response = await http.get(url);
     print(response.statusCode);
     final asset = List<Map<String, dynamic>>.from(jsonDecode(response.body));
 
     String inven_code = (asset[0]['Inventory_Number'] ?? '');
     String inven_detail = (asset[0]['Asset_Description'] ?? '');
-    String inven_location = (asset[0]['Location'] ?? '');
     String inven_room = (asset[0]['Room'] ?? '');
+    String inven_location = (asset[0]['Location'] ?? '');
     int inven_status = (asset[0]['Status'] ?? '');
+
     setState(() {
       code = inven_code;
       detail = inven_detail;
       location = inven_location;
       room = inven_room;
-      status = inven_status;
+      val = inven_status;
+
+      if (inven_status == 1 || inven_status == 2) {
+        disable();
+        isVisible = !isVisible;
+        check = 'Not in checking period or this asset is checked';
+      }
     });
+  }
+
+  //show dialog
+  void show_dialog() {
+    Get.defaultDialog(
+      title: 'Success',
+      content: Column(
+        children: [
+          const Text('Asset check!'),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('close'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
   }
 
   //update details
   void update_details() async {
-    Uri url = Uri.parse(_url + '/update_data/');
-
+    Uri url = Uri.parse(_url + '/update/' + result);
+    print(result);
     try {
       http.Response response = await http.post(url, body: {
         'location': tcLocation.text,
         'room': tcRoom.text,
-        'status': gValue.toString()
+        'status': val.toString()
       });
 
       print(response.body);
@@ -103,13 +135,17 @@ class _asset_detailsState extends State<asset_details> {
           child: Column(
             children: [
               Text('Inventory Number:'),
+              Text(code),
+              Text(detail),
+             
               SizedBox(height: 10),
-              TextFormField(
+              TextField(
                 controller: tcLocation,
                 enabled: _isButtonEnabled,
-                initialValue: '',
                 decoration: InputDecoration(
                   labelText: 'Building',
+                  hintText: location,
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
                   //errorText: 'Error message',
                   border: OutlineInputBorder(),
                   suffixIcon: Icon(
@@ -118,12 +154,14 @@ class _asset_detailsState extends State<asset_details> {
                 ),
               ),
               SizedBox(height: 15),
-              TextFormField(
+              TextField(
                 controller: tcRoom,
                 enabled: _isButtonEnabled,
-                initialValue: '',
+                
                 decoration: InputDecoration(
                   labelText: 'Room',
+                  hintText: room,
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
                   //errorText: 'Error message',
                   border: OutlineInputBorder(),
                   suffixIcon: Icon(
@@ -138,12 +176,12 @@ class _asset_detailsState extends State<asset_details> {
                     children: [
                       Radio(
                         value: 0,
-                        groupValue: gValue,
+                        groupValue: val,
                         onChanged: !_isButtonEnabled
                             ? null
                             : (value) {
                                 setState(() {
-                                  gValue = 0;
+                                  val = 0;
                                 });
                               },
                       ),
@@ -154,12 +192,12 @@ class _asset_detailsState extends State<asset_details> {
                     children: [
                       Radio(
                         value: 1,
-                        groupValue: gValue,
+                        groupValue: val,
                         onChanged: !_isButtonEnabled
                             ? null
                             : (value) {
                                 setState(() {
-                                  gValue = 1;
+                                  val = 1;
                                 });
                               },
                       ),
@@ -170,12 +208,12 @@ class _asset_detailsState extends State<asset_details> {
                     children: [
                       Radio(
                         value: 2,
-                        groupValue: gValue,
+                        groupValue: val,
                         onChanged: !_isButtonEnabled
                             ? null
                             : (value) {
                                 setState(() {
-                                  gValue = 2;
+                                  val = 2;
                                 });
                               },
                       ),
@@ -184,24 +222,15 @@ class _asset_detailsState extends State<asset_details> {
                   ),
                 ],
               ),
-              OutlinedButton(
+              Text(check),
+            Visibility(
+              child: OutlinedButton(
                 onPressed: () {
-                  Get.defaultDialog(
-                    title: 'Success',
-                    content: Column(
-                      children: [
-                        const Text('Asset check!'),
-                        OutlinedButton(
-                          onPressed: () {
-                            update_details();
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('Close'),
-                        ),
-                      ],
-                    ),
-                    barrierDismissible: false,
-                  );
+                  update_details();
+                  disable();
+                  show_dialog();
+                  isVisible = !isVisible;
+                  check = 'The asset is checked';
                 },
                 child: Text('Check'),
                 style: ElevatedButton.styleFrom(
@@ -209,6 +238,31 @@ class _asset_detailsState extends State<asset_details> {
                   onPrimary: Colors.blue,
                 ),
               ),
+              visible: isVisible,
+            ),
+              // OutlinedButton(
+              //   onPressed: () {
+              //     Get.defaultDialog(
+              //       title: 'Success',
+              //       content: Column(
+              //         children: [
+              //           const Text('Asset check!'),
+              //           OutlinedButton(
+              //             onPressed: () {
+              //               update_details();
+              //               disable();
+              //               show_dialog();
+                            
+              //             },
+                          
+              //           ),
+              //         ],
+              //       ),
+              //       barrierDismissible: false,
+              //     );
+              //   },
+                
+              // ),
             ],
           ),
         ),

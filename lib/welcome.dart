@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:qr_scan/qr_code.dart';
+import 'asset_detail.dart';
+import 'package:http/http.dart' as http;
+
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({Key? key}) : super(key: key);
@@ -12,15 +17,94 @@ class WelcomePage extends StatefulWidget {
 class _WelcomePageState extends State<WelcomePage> {
   //text form validiation
   final _formKey = GlobalKey<FormState>();
-  final fieldText = TextEditingController();
+  
+  final _url = 'http://192.168.0.125:3000';
 
-  String lost = '';
-  String normal = '';
-  String degraded = '';
+  int lost = 0;
+  int normal = 0;
+  int degraded = 0;
+
+  TextEditingController tcNumber = TextEditingController();
 
   //clear text
   void clearText() {
-    fieldText.clear();
+    tcNumber.clear();
+  }
+
+  void initState() {
+    item_lost();
+    item_normal();
+    item_degraded();
+    super.initState();
+  }
+
+//------Lost-------
+  void item_lost() async {
+    Uri url = Uri.parse(_url + '/lost/');
+    http.Response response = await http.get(url);
+    print(response.statusCode);
+    final asset = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
+    int iLost = (asset[0]['COUNT(Status)'] ?? '');
+
+    setState(() {
+      lost = iLost;
+    });
+  }
+
+//--------Normal--------
+  void item_normal() async {
+    Uri url = Uri.parse(_url + '/normal/');
+    http.Response response = await http.get(url);
+    print(response.statusCode);
+    final asset = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
+    int iNormal = (asset[0]['COUNT(Status)'] ?? '');
+
+    setState(() {
+      normal = iNormal;
+    });
+  }
+
+  //-------Degraded----------
+  void item_degraded() async {
+    Uri url = Uri.parse(_url + '/degraded/');
+    http.Response response = await http.get(url);
+    print(response.statusCode);
+    final asset = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
+    int iDegraded = (asset[0]['COUNT(Status)'] ?? '');
+
+    setState(() {
+      degraded = iDegraded;
+    });
+  }
+
+//------Inventory-------
+  void check_inventory() async {
+    Uri url = Uri.parse(_url + '/inventory/' + tcNumber.text);
+    http.Response response = await http.get(url);
+    //print(response.statusCode);
+    if (response.statusCode == 500) {
+      //print('No data');
+      Get.defaultDialog(
+        title: 'Error',
+        content: Column(
+          children: [
+            const Text('Asset not found in our system'),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('close'),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+    } else if (response.statusCode == 200) {
+      Get.to(() => asset_details(), arguments: tcNumber.text);
+    } 
   }
 
   @override
@@ -40,21 +124,21 @@ class _WelcomePageState extends State<WelcomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Text(
-                    'Lost:',
+                    'Lost:' + lost.toString(),
                     style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.red),
                   ),
                   Text(
-                    'Normal:',
+                    'Normal:' + normal.toString(),
                     style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.green),
                   ),
                   Text(
-                    'Degraded:',
+                    'Degraded:' + degraded.toString(),
                     style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -91,7 +175,7 @@ class _WelcomePageState extends State<WelcomePage> {
                   },
                   //initialValue: '',
                   maxLength: 15,
-                  controller: fieldText,
+                  controller: tcNumber,
                   decoration: const InputDecoration(
                     labelText: 'Inventory Number',
                     //errorText: 'Error message',
@@ -127,9 +211,12 @@ class _WelcomePageState extends State<WelcomePage> {
                   ElevatedButton.icon(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Success')),
-                        );
+                        // ScaffoldMessenger.of(context).showSnackBar(
+                        //   const SnackBar(content: Text('Success')),
+                        // );
+                        setState(() {
+                          check_inventory();
+                        });
                       }
                     },
                     icon: Icon(
@@ -164,8 +251,7 @@ class _WelcomePageState extends State<WelcomePage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (context) => qrScan()),
+                        MaterialPageRoute(builder: (context) => qrScan()),
                       );
                     },
                     icon: Icon(
